@@ -1,51 +1,79 @@
 #include <Arduino.h>
 #include <Servo.h>
+#include "utils.h"
 
-#define SERVO_PIN 1
-#define GEAR_TEETH 12
-#define GEAR_PITCH 0.03 // meters
+#define SERVO_PIN 0
 
-const float DELTA_ANGLE = 360.0 / GEAR_TEETH;
-const float DELTA_HEIGHT = 2 * PI * (GEAR_PITCH / 2) / GEAR_TEETH;
+#define GEAR_PITCH 30 // millimeters
 
 Servo servo;
-bool active = false;
-int heightAngle;
 
-void setContactState();
-void setSeparationState();
+bool active = false;
+int heightAngle = 0;
+int separationInterval = 0;
+int writeDelay = 0;
 
 void setup()
 {
-  Serial.begin(9600); // For debugging purposes
+  Serial.begin(9600);
 
   // Attach servo
   servo.attach(SERVO_PIN);
 
   // Reset servo to contact state
-  setContactState();
+  servo.write(0);
 }
 
 void loop()
 {
-  if (!active && Serial.available())
+  if (Serial.available())
   {
-    String string = Serial.readString();
+    const String string = Serial.readString();
 
-    if (string.equalsIgnoreCase("start"))
+    // Start oscillation
+    if (!active && string.equalsIgnoreCase("start"))
     {
       active = true;
+      Serial.println("Started oscillation");
     }
+
+    // Stop oscillation
+    else if (active && string.equalsIgnoreCase("stop"))
+    {
+      active = false;
+      Serial.println("Stopped oscillation");
+    }
+
+    // Set parameters (should be done first)
     else if (string.startsWith("set:"))
     {
-      int height = string.substring(4).toInt();
-    }
+      String *parameters = new String[2];
+      splitAtFirst(string.substring(4), ':', parameters);
 
+      const int height = parameters[0].toInt();
+      heightAngle = 180 * height / (PI * GEAR_PITCH);
+
+      separationInterval = parameters[1].toInt();
+      writeDelay = (separationInterval / 2) / heightAngle;
+    }
     return;
   }
-}
 
-void setContactState()
-{
-  servo.write(0);
+  // Contact and separation functionality
+  if (active)
+  {
+    // Separation
+    for (int angle = 0; angle <= heightAngle; angle++)
+    {
+      servo.write(angle);
+      delay(writeDelay);
+    }
+
+    // Contact
+    for (int angle = heightAngle; angle >= 0; angle--)
+    {
+      servo.write(angle);
+      delay(writeDelay);
+    }
+  }
 }
