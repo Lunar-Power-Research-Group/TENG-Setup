@@ -159,14 +159,14 @@ void loop()
     const short current_write_delay = write_delay;
 
     // Separation
-    for (short angle = 0; angle <= current_height_angle; angle++)
+    for (short angle = 180; angle >= 180 - current_height_angle; angle--)
     {
       servo.write(angle);
       delay(current_write_delay);
     }
 
     // Contact
-    for (short angle = current_height_angle; angle >= 0; angle--)
+    for (short angle = 180 - current_height_angle; angle <= 180; angle++)
     {
       servo.write(angle);
       delay(current_write_delay);
