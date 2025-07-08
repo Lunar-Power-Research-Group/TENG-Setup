@@ -13,6 +13,7 @@ void splitAtFirst(const String &string, const char delimeter, String *arr)
         {
             arr[0] = firstString;
             arr[1] = string.substring(i + 1);
+            return;
         }
         else
         {

@@ -3,7 +3,7 @@
 #include "utils.h"
 
 #define STATUS_LED LED_BUILTIN
-#define SERVO_PIN 0
+#define SERVO_PIN 12
 #define START_BUTTON 2
 #define INCREMENT_BUTTON 4
 #define DECREMENT_BUTTON 7
@@ -59,7 +59,7 @@ void setup()
   servo.attach(SERVO_PIN);
 
   // Reset servo to contact state
-  servo.write(0);
+  servo.write(180);
 }
 
 static bool is_button_pressed(const int pin)
