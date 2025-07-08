@@ -2,20 +2,58 @@
 #include <Servo.h>
 #include "utils.h"
 
+#define STATUS_LED LED_BUILTIN
 #define SERVO_PIN 0
+#define START_BUTTON 2
+#define INCREMENT_BUTTON 4
+#define DECREMENT_BUTTON 7
+#define CHANGE_SETTING_BUTTON 8
 
 #define GEAR_PITCH 30 // millimeters
+
+struct Setting
+{
+  enum Value
+  {
+    GAP = 0,
+    INTERVAL,
+    N_ITEMS
+  };
+
+  static const String ToStr(const Setting::Value &value)
+  {
+    switch (value)
+    {
+    case GAP:
+      return "Gap";
+    case INTERNAL:
+      return "Interval";
+    default:
+      return "Unknown";
+    }
+  }
+};
 
 Servo servo;
 
 bool active = false;
-int heightAngle = 0;
-int separationInterval = 0;
-int writeDelay = 0;
+Setting::Value setting_mode = Setting::GAP;
+
+// Settings
+byte height = 10;
+short height_angle = 0;
+short separation_interval = 0;
+short write_delay = 0;
 
 void setup()
 {
   Serial.begin(9600);
+
+  pinMode(STATUS_LED, OUTPUT);
+  pinMode(INCREMENT_BUTTON, INPUT_PULLUP);
+  pinMode(DECREMENT_BUTTON, INPUT_PULLUP);
+  pinMode(START_BUTTON, INPUT_PULLUP);
+  pinMode(CHANGE_SETTING_BUTTON, INPUT_PULLUP);
 
   // Attach servo
   servo.attach(SERVO_PIN);
@@ -24,56 +62,114 @@ void setup()
   servo.write(0);
 }
 
-void loop()
+static bool is_button_pressed(const int pin)
 {
-  if (Serial.available())
+  return !digitalRead(pin);
+}
+
+static short get_write_delay(const short interval, const short height_angle)
+{
+  return (interval / 2) / height_angle;
+}
+
+static short get_height_angle(const short height)
+{
+  return 180 * height / (PI * GEAR_PITCH);
+}
+
+void handle_inputs()
+{
+  // Toggle active state
+  if (is_button_pressed(START_BUTTON))
   {
-    const String string = Serial.readString();
-
-    // Start oscillation
-    if (!active && string.equalsIgnoreCase("start"))
-    {
-      active = true;
-      Serial.println("Started oscillation");
-    }
-
-    // Stop oscillation
-    else if (active && string.equalsIgnoreCase("stop"))
+    if (active)
     {
       active = false;
-      Serial.println("Stopped oscillation");
+      digitalWrite(STATUS_LED, LOW);
     }
-
-    // Set parameters (should be done first)
-    else if (string.startsWith("set:"))
+    else
     {
-      String *parameters = new String[2];
-      splitAtFirst(string.substring(4), ':', parameters);
-
-      const int height = parameters[0].toInt();
-      heightAngle = 180 * height / (PI * GEAR_PITCH);
-
-      separationInterval = parameters[1].toInt();
-      writeDelay = (separationInterval / 2) / heightAngle;
+      active = true;
+      digitalWrite(STATUS_LED, HIGH);
     }
-    return;
   }
+
+  // Setup configuration
+  if (is_button_pressed(CHANGE_SETTING_BUTTON))
+  {
+    setting_mode = static_cast<Setting::Value>((setting_mode + 1) % Setting::N_ITEMS);
+  }
+
+  if (is_button_pressed(INCREMENT_BUTTON))
+  {
+    switch (setting_mode)
+    {
+    case Setting::GAP:
+    {
+      height_angle = get_height_angle(++height);
+      write_delay = get_write_delay(separation_interval, height_angle);
+
+      Serial.println("Height:");
+      Serial.println(height);
+      break;
+    }
+    case Setting::INTERVAL:
+    {
+      write_delay = get_write_delay(++separation_interval, height_angle);
+
+      Serial.println("Interval:");
+      Serial.println(separation_interval);
+      break;
+    }
+    }
+  }
+  else if (is_button_pressed(DECREMENT_BUTTON))
+  {
+    switch (setting_mode)
+    {
+    case Setting::GAP:
+    {
+      height_angle = get_height_angle(--height);
+      write_delay = get_write_delay(separation_interval, height_angle);
+
+      Serial.println("Height:");
+      Serial.println(height);
+      break;
+    }
+    case Setting::INTERVAL:
+    {
+      write_delay = get_write_delay(--separation_interval, height_angle);
+
+      Serial.println("Interval:");
+      Serial.println(separation_interval);
+      break;
+    }
+    }
+  }
+}
+
+void loop()
+{
+  handle_inputs();
 
   // Contact and separation functionality
   if (active)
   {
+    const short current_height_angle = height_angle;
+    const short current_write_delay = write_delay;
+
     // Separation
-    for (int angle = 0; angle <= heightAngle; angle++)
+    for (short angle = 0; angle <= current_height_angle; angle++)
     {
       servo.write(angle);
-      delay(writeDelay);
+      delay(current_write_delay);
     }
 
     // Contact
-    for (int angle = heightAngle; angle >= 0; angle--)
+    for (short angle = current_height_angle; angle >= 0; angle--)
     {
       servo.write(angle);
-      delay(writeDelay);
+      delay(current_write_delay);
     }
   }
 }
