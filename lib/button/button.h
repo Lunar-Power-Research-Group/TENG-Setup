@@ -7,9 +7,10 @@ struct Button
     byte last_state;
     byte last_flicker_state;
     long last_debounce_time;
+    bool pressed;
 
-    Button() : pin(0), current_state(LOW), last_state(LOW), last_flicker_state(LOW), last_debounce_time(0) {}
-    Button(byte pin) : pin(pin), current_state(LOW), last_state(LOW), last_flicker_state(LOW), last_debounce_time(0) {}
+    Button() : pin(0), current_state(LOW), last_state(LOW), last_flicker_state(LOW), last_debounce_time(0), pressed(false) {}
+    Button(byte pin) : pin(pin), current_state(LOW), last_state(LOW), last_flicker_state(LOW), last_debounce_time(0), pressed(false) {}
 };
 
 void register_button(const byte id, const byte pin);
