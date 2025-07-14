@@ -7,8 +7,8 @@
 #define STATUS_LED LED_BUILTIN
 #define SERVO_PIN 12
 #define START_BUTTON_PIN 2
-#define INCREMENT_BUTTON_PIN 4
-#define DECREMENT_BUTTON_PIN 7
+#define INCREMENT_BUTTON_PIN 7
+#define DECREMENT_BUTTON_PIN 4
 #define CHANGE_SETTING_BUTTON_PIN 8
 
 #define START_BUTTON 0
@@ -45,6 +45,7 @@ Servo servo;
 SegmentDisplay segment_display;
 
 bool active = false;
+bool queue_end = false;
 Setting::Value setting_mode = Setting::GAP;
 
 // Settings
@@ -75,13 +76,10 @@ void setup()
   register_button(CHANGE_SETTING_BUTTON, CHANGE_SETTING_BUTTON_PIN);
 
   // Register 7-segment display
-  const byte digit_pins[4] = {0, 1, 3, 5};
+  const byte digit_pins[4] = {9, 10, 3, 5};
   const byte segment_pins[7] = {11, A0, A1, A2, A3, A4, A5};
 
   segment_display.register_pins(digit_pins, segment_pins);
-  segment_display.display_length_mode();
-  delay(1);
-  display_number(height);
 
   // Attach servo
   servo.attach(SERVO_PIN);
@@ -100,23 +98,29 @@ static short get_height_angle(const short height)
   return 180 * height / (PI * GEAR_PITCH);
 }
 
+void end_if_queued()
+{
+  if (queue_end)
+  {
+    queue_end = false;
+    active = false;
+    digitalWrite(STATUS_LED, LOW);
+  }
+}
+
 void handle_inputs()
 {
   // Toggle active state
   if (is_button_just_pressed(START_BUTTON))
   {
-    Serial.println("Pressed start button");
     if (active)
     {
-      active = false;
-      digitalWrite(STATUS_LED, LOW);
-      Serial.println("Stop");
+      queue_end = true;
     }
     else
     {
       active = true;
       digitalWrite(STATUS_LED, HIGH);
-      Serial.println("Start");
     }
   }
 
@@ -134,9 +138,6 @@ void handle_inputs()
     {
       height_angle = get_height_angle(++height);
       write_delay = get_write_delay(separation_interval, height_angle);
-
-      Serial.println("Height:");
-      Serial.println(height);
       break;
     }
     case Setting::INTERVAL:
@@ -144,8 +145,6 @@ void handle_inputs()
       separation_interval += 100;
       write_delay = get_write_delay(separation_interval, height_angle);
 
-      Serial.println("Interval:");
-      Serial.println(separation_interval);
       break;
     }
     default:
@@ -160,18 +159,12 @@ void handle_inputs()
     {
       height_angle = get_height_angle(--height);
       write_delay = get_write_delay(separation_interval, height_angle);
-
-      Serial.println("Height:");
-      Serial.println(height);
       break;
     }
     case Setting::INTERVAL:
     {
       separation_interval -= 100;
       write_delay = get_write_delay(separation_interval, height_angle);
-
-      Serial.println("Interval:");
-      Serial.println(separation_interval);
       break;
     }
     default:
@@ -203,6 +196,8 @@ void handle_servo_tick()
     {
       rising = true;
       angle = 180;
+
+      end_if_queued();
       return;
     }
 
@@ -222,12 +217,14 @@ void loop()
     segment_display.display_length_mode();
     delay(1);
     display_number(height);
+    delay(1);
   }
   else if (setting_mode == Setting::INTERVAL)
   {
     segment_display.display_interval_mode();
     delay(1);
     display_number(separation_interval / 100);
+    delay(1);
   }
 
   // Contact and separation functionality
