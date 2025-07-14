@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Servo.h>
 #include "button.h"
+#include "segment_display.h"
 #include "utils.h"
 
 #define STATUS_LED LED_BUILTIN
@@ -41,6 +42,7 @@ struct Setting
 };
 
 Servo servo;
+SegmentDisplay segment_display;
 
 bool active = false;
 Setting::Value setting_mode = Setting::GAP;
@@ -50,6 +52,15 @@ byte height = 10;
 short height_angle = 0;
 short separation_interval = 1000;
 short write_delay = 0;
+
+void display_number(const int number)
+{
+  byte first_digit = (number / 10) % 10;
+  byte second_digit = number % 10;
+  segment_display.display_number(0, second_digit);
+  delay(1);
+  segment_display.display_number(1, first_digit);
+}
 
 void setup()
 {
@@ -62,6 +73,15 @@ void setup()
   register_button(INCREMENT_BUTTON, INCREMENT_BUTTON_PIN);
   register_button(DECREMENT_BUTTON, DECREMENT_BUTTON_PIN);
   register_button(CHANGE_SETTING_BUTTON, CHANGE_SETTING_BUTTON_PIN);
+
+  // Register 7-segment display
+  const byte digit_pins[4] = {0, 1, 3, 5};
+  const byte segment_pins[7] = {11, A0, A1, A2, A3, A4, A5};
+
+  segment_display.register_pins(digit_pins, segment_pins);
+  segment_display.display_length_mode();
+  delay(1);
+  display_number(height);
 
   // Attach servo
   servo.attach(SERVO_PIN);
@@ -196,6 +216,19 @@ void loop()
 {
   handle_inputs();
   update_button_states();
+
+  if (setting_mode == Setting::GAP)
+  {
+    segment_display.display_length_mode();
+    delay(1);
+    display_number(height);
+  }
+  else if (setting_mode == Setting::INTERVAL)
+  {
+    segment_display.display_interval_mode();
+    delay(1);
+    display_number(separation_interval / 100);
+  }
 
   // Contact and separation functionality
   if (active)

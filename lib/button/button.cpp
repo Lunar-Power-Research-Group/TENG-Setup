@@ -19,6 +19,7 @@ void update_button_states()
     {
         button.current_state = digitalRead(button.pin);
 
+        // Debounce handling
         if (button.current_state != button.last_flicker_state)
         {
             button.last_flicker_state = button.current_state;
@@ -27,11 +28,11 @@ void update_button_states()
 
         if (now - button.last_debounce_time > DEBOUNCE_MS)
         {
+            // Setting button states after debounce conditions are true
             button.pressed = button.current_state == LOW && button.last_state == HIGH;
             button.last_state = button.current_state;
         }
-            
-    }
+        }
 }
 
 bool is_button_just_pressed(const byte id)
