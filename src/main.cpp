@@ -54,6 +54,11 @@ short height_angle = 0;
 short separation_interval = 1000;
 short write_delay = 0;
 
+// Servo
+bool rising = true;
+long last_dir_change = 0;
+short angle = 180;
+
 void display_number(const int number)
 {
   byte first_digit = (number / 10) % 10;
@@ -111,17 +116,29 @@ void end_if_queued()
 void handle_inputs()
 {
   // Toggle active state
-  if (is_button_just_pressed(START_BUTTON))
+  if (!active)
   {
-    if (active)
-    {
-      queue_end = true;
-    }
-    else
+    if (is_button_held_for(START_BUTTON, 1000))
     {
       active = true;
       digitalWrite(STATUS_LED, HIGH);
     }
+    else if (is_button_just_released(START_BUTTON))
+    {
+      if (rising)
+      {
+        servo.write(90);
+        rising = false;
+      }
+      else
+      {
+        servo.write(180);
+        rising = true;
+      }
+    }
+  } else {
+    if (is_button_just_pressed(START_BUTTON))
+      queue_end = true;
   }
 
   // Setup configuration
@@ -173,9 +190,6 @@ void handle_inputs()
   }
 }
 
-bool rising = false;
-long last_dir_change = 0;
-short angle = 180;
 
 void handle_servo_tick()
 {
@@ -209,8 +223,8 @@ void handle_servo_tick()
 
 void loop()
 {
-  handle_inputs();
   update_button_states();
+  handle_inputs();
 
   if (setting_mode == Setting::GAP)
   {
