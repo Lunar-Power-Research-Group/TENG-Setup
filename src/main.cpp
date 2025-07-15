@@ -1,17 +1,13 @@
 #include <Arduino.h>
 #include <Servo.h>
-#include "button.h"
-#include "segment_display.h"
-#include "utils.h"
+#include <MultiFuncShield.h>
 
 #define STATUS_LED LED_BUILTIN
-#define SERVO_PIN 12
-#define START_BUTTON_PIN 2
-#define INCREMENT_BUTTON_PIN 7
-#define DECREMENT_BUTTON_PIN 4
-#define CHANGE_SETTING_BUTTON_PIN 8
+#define SERVO_PIN 5
+#define INCREMENT_BUTTON_PIN A1
+#define DECREMENT_BUTTON_PIN A2
+#define CHANGE_SETTING_BUTTON_PIN A3
 
-#define START_BUTTON 0
 #define INCREMENT_BUTTON 1
 #define DECREMENT_BUTTON 2
 #define CHANGE_SETTING_BUTTON 3
@@ -42,7 +38,6 @@ struct Setting
 };
 
 Servo servo;
-SegmentDisplay segment_display;
 
 bool active = false;
 bool queue_end = false;
@@ -59,13 +54,34 @@ bool rising = true;
 long last_dir_change = 0;
 short angle = 180;
 
-void display_number(const int number)
+void update_segment_display()
 {
-  byte first_digit = (number / 10) % 10;
-  byte second_digit = number % 10;
-  segment_display.display_number(0, second_digit);
-  delay(1);
-  segment_display.display_number(1, first_digit);
+  String prefix;
+  float value;
+
+  switch (setting_mode)
+  {
+  case Setting::GAP:
+  {
+    prefix = "L";
+    value = height;
+    break;
+  }
+  case Setting::INTERVAL:
+  {
+    prefix = "t";
+    value = separation_interval / 1000.0;
+    break;
+  }
+  default:
+  {
+    MFS.write("----", 0);
+    return;
+  }
+  }
+
+  String display = prefix + ' ' + value;
+  MFS.write(display.c_str(), 0);
 }
 
 void setup()
@@ -74,17 +90,10 @@ void setup()
 
   pinMode(STATUS_LED, OUTPUT);
 
-  // Register buttons
-  register_button(START_BUTTON, START_BUTTON_PIN);
-  register_button(INCREMENT_BUTTON, INCREMENT_BUTTON_PIN);
-  register_button(DECREMENT_BUTTON, DECREMENT_BUTTON_PIN);
-  register_button(CHANGE_SETTING_BUTTON, CHANGE_SETTING_BUTTON_PIN);
-
   // Register 7-segment display
-  const byte digit_pins[4] = {9, 10, 3, 5};
-  const byte segment_pins[7] = {11, A0, A1, A2, A3, A4, A5};
-
-  segment_display.register_pins(digit_pins, segment_pins);
+  MFS.initialize();
+  MFS.setDisplayBrightness(1);
+  update_segment_display();
 
   // Attach servo
   servo.attach(SERVO_PIN);
@@ -109,45 +118,48 @@ void end_if_queued()
   {
     queue_end = false;
     active = false;
+    update_segment_display();
     digitalWrite(STATUS_LED, LOW);
   }
 }
 
-void handle_inputs()
+static bool is_button_short_released(const byte btn, const uint8_t id)
+{
+  return btn == (id | BUTTON_SHORT_RELEASE_IND);
+}
+
+static bool is_button_long_released(const byte btn, const uint8_t id)
+{
+  return btn == (id | BUTTON_LONG_RELEASE_IND);
+}
+
+void handle_inputs(const byte btn)
 {
   // Toggle active state
   if (!active)
   {
-    if (is_button_held_for(START_BUTTON, 1000))
+    if (is_button_long_released(btn, CHANGE_SETTING_BUTTON))
     {
       active = true;
       digitalWrite(STATUS_LED, HIGH);
     }
-    else if (is_button_just_released(START_BUTTON))
+  }
+  else
+  {
+    if (is_button_long_released(btn, CHANGE_SETTING_BUTTON))
     {
-      if (rising)
-      {
-        servo.write(90);
-        rising = false;
-      }
-      else
-      {
-        servo.write(180);
-        rising = true;
-      }
-    }
-  } else {
-    if (is_button_just_pressed(START_BUTTON))
       queue_end = true;
+    }
   }
 
   // Setup configuration
-  if (is_button_just_pressed(CHANGE_SETTING_BUTTON))
+  if (is_button_short_released(btn, CHANGE_SETTING_BUTTON))
   {
     setting_mode = static_cast<Setting::Value>((setting_mode + 1) % Setting::N_ITEMS);
+    update_segment_display();
   }
 
-  if (is_button_just_pressed(INCREMENT_BUTTON))
+  if (is_button_short_released(btn, INCREMENT_BUTTON))
   {
     switch (setting_mode)
     {
@@ -167,8 +179,10 @@ void handle_inputs()
     default:
       break;
     }
+
+    update_segment_display();
   }
-  else if (is_button_just_pressed(DECREMENT_BUTTON))
+  else if (is_button_short_released(btn, DECREMENT_BUTTON))
   {
     switch (setting_mode)
     {
@@ -187,9 +201,10 @@ void handle_inputs()
     default:
       break;
     }
+
+    update_segment_display();
   }
 }
-
 
 void handle_servo_tick()
 {
@@ -223,23 +238,8 @@ void handle_servo_tick()
 
 void loop()
 {
-  update_button_states();
-  handle_inputs();
-
-  if (setting_mode == Setting::GAP)
-  {
-    segment_display.display_length_mode();
-    delay(1);
-    display_number(height);
-    delay(1);
-  }
-  else if (setting_mode == Setting::INTERVAL)
-  {
-    segment_display.display_interval_mode();
-    delay(1);
-    display_number(separation_interval / 100);
-    delay(1);
-  }
+  const byte btn = MFS.getButton();
+  handle_inputs(btn);
 
   // Contact and separation functionality
   if (active)
