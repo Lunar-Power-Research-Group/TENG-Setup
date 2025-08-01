@@ -26,4 +26,13 @@ This setup is used to measure the AC voltage generated from continuously separat
 Assembly information here!
 
 ## Usage
+### Modifying parameters
+On the segment display, you will see a letter and a number. The letter corresponds to which setting you are modifying. "L" represents the height (in millimeters) at which the top layer will reach; "T" represents the amount of time (in seconds) it takes for the system to separate and make contact again. The number corresponds to the value of the setting.
+
+On the bottom of the shield, there are 3 buttons. The left two buttons handles changing the values and the right-most button switches which setting is being modified.
+
+### Running the system
+To start the system, hold the right-most button for 1 second and release. You are able to change the settings while the system is in motion. To stop, hold the same button for 1 second and release. This will put the system back into contact state.
+
+### Logging data
 
