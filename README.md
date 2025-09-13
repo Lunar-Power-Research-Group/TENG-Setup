@@ -5,7 +5,7 @@ This setup is used to measure the AC voltage generated from continuously separat
 
 ## How to use the setup
 ### Materials:
-* 9 plates ([click here](https://cad.onshape.com/documents/5c0fde93ce1233b219407b02/w/5a7b02e2281981782c322d61/e/4ee829c3a89cbf12159e9ca7?renderMode=0&uiState=68c5b3f746557c9b987ad30f) for models):
+* 9 plates ([click here](http://cad.onshape.com/documents/5c0fde93ce1233b219407b02/w/5a7b02e2281981782c322d61/e/4ee829c3a89cbf12159e9ca7?renderMode=0&uiState=68c5b3f746557c9b987ad30f) for models):
   * Base
   * Servo holder
   * Rack
